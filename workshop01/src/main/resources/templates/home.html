@@ -1,0 +1,18 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <link rel="stylesheet" href="/css/main.css" />
+    <title th:text="${title}"></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+<div class="page-content">
+    <img th:src="@{/image/weavile.png}" />
+    <h2 th:text="|${message}|"></h2>
+    <div>
+        <span th:text="|Repository: |"></span>
+        <a th:href="|${url}|">https://github.com/dtgw91/cfdsa-assignment-1</a>
+    </div>
+</div>
+</body>
+</html>
