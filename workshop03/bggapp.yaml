@@ -1,0 +1,228 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myvol
+  labels:
+    name: myvol
+    type: volume
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: do-block-storage
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bggdb-deploy
+  labels:
+    name: bggdb-deploy
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      name: bggdb-po
+  template:
+    metadata: 
+      name: bggdb-po
+      labels: 
+        name: bggdb-po
+        dept: database
+    spec:
+      volumes:
+          - name: my-pvc-vol
+            persistentVolumeClaim:
+              claimName: myvol
+      containers:
+        - name: bggdb-container
+          image: stackupiss/bgg-database:v1
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - name: my-pvc-vol
+            mountPath: /var/lib/mysql
+          ports: 
+          - name: bggdb-port
+            containerPort: 3306
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bggdb-svc
+  labels:
+    name: bggdb-svc
+spec:
+  type: ClusterIP
+  selector:
+    name: bggdb-po
+  ports:
+  - port: 3306
+    targetPort: bggdb-port
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: bggapp-configmap
+data:
+  BGG_DB_USER: root
+  BGG_DB_HOST: bggdb-svc
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bggapp-secret
+type: Opaque
+data:
+  BGG_DB_PASSWORD: Y2hhbmdlaXQ=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bggappv1-deploy
+  labels:
+    name: bggappv1-deploy
+spec: 
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      name: bggappv1-po
+  template:
+    metadata: 
+      name: bggappv1-po
+      labels: 
+        name: bggappv1-po
+        dept: application
+    spec:
+      containers:
+        - name: bggapp-container
+          image: stackupiss/bgg-backend:v1
+          args: ["--prefix", "/v1"]
+          imagePullPolicy: IfNotPresent
+          ports: 
+          - name: bggapp-port
+            containerPort: 3000
+          envFrom:
+          - secretRef:
+              name: bggapp-secret  
+          - configMapRef:
+              name: bggapp-configmap
+          livenessProbe: 
+            httpGet:
+              path: /healthz
+              port: 3000
+              scheme: HTTP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bggappv1-svc
+  labels:
+    name: bggappv1-svc
+spec:
+  type: ClusterIP
+  selector:
+    name: bggappv1-po
+  ports:
+  - port: 8080
+    targetPort: bggapp-port
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bggappv2-deploy
+  labels:
+    name: bggappv2-deploy
+spec: 
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  selector:
+    matchLabels:
+      name: bggappv2-po
+  template:
+    metadata: 
+      name: bggappv2-po
+      labels: 
+        name: bggappv2-po
+        dept: application
+    spec:
+      containers:
+        - name: bggapp-container
+          image: stackupiss/bgg-backend:v2
+          args: ["--prefix", "/v2"]
+          imagePullPolicy: IfNotPresent
+          ports: 
+          - name: bggapp-port
+            containerPort: 3000
+          envFrom:
+          - secretRef:
+              name: bggapp-secret  
+          - configMapRef:
+              name: bggapp-configmap
+          # livenessProbe: 
+          #   httpGet:
+          #     path: /healthz
+          #     port: 3000
+          #     scheme: HTTP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bggappv2-svc
+  labels:
+    name: bggappv2-svc
+spec:
+  type: ClusterIP
+  selector:
+    name: bggappv2-po
+  ports:
+  - port: 8080
+    targetPort: bggapp-port
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bgg-ing
+  labels:
+    name: bgg-ing
+    type: ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: bgg-146.190.5.176.nip.io
+    http:
+      paths:
+      - path: /v1
+        pathType: Prefix
+        backend:  
+          service:
+            name: bggappv1-svc
+            port: 
+              number: 8080
+      - path: /v2
+        pathType: Prefix
+        backend:  
+          service:
+            name: bggappv2-svc
+            port: 
+              number: 8080
+
+              

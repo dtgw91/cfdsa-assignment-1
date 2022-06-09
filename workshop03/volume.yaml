@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myvol
+  labels:
+    name: myvol
+    type: volume
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: do-block-storage
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-cm
+  labels:
+    name: my-cm
+    type: cm
+data:
+  hosts: |
+    127.0.0.1 rancherci.gpls.pro
+    127.0.0.1 rancherqa.gpls.pro
+  readme.txt: Please read this file

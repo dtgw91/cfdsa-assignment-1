@@ -1,0 +1,80 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: dov-bear-configmap
+data:
+  INSTANCE_NAME: k8s dov-bear instance
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dov-bear-secret
+type: Opaque
+data:
+  INSTANCE_NAME: azhzIGRvdi1iZWFyIHNlY3JldA==
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dov-bear-deploy
+  labels:
+    name: dov-bear-deploy
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      name: dov-bear-po
+  template:
+    metadata: 
+      name: dov-bear-po
+      labels: 
+        name: dov-bear-po
+        dept: engineering
+    spec:
+      volumes:
+        - name: cm-vol
+          configMap:
+            name: my-cm
+        - name: my-pvc-vol
+          persistentVolumeClaim:
+            claimName: myvol
+      containers:
+        - name: dov-bear-container
+          image: docker.io/chukmunnlee/dov-bear:v1
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - name: cm-vol
+            mountPath: /opt/configmap
+            readOnly: true
+          - name: my-pvc-vol
+            mountPath: /opt/myvol
+          ports: 
+          - name: dov-port
+            containerPort: 3000
+          envFrom:
+          - secretRef:
+              name: dov-bear-secret  
+          livenessProbe: 
+            httpGet:
+              path: /healthz
+              port: 3000
+              scheme: HTTP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dov-bear-service
+  labels:
+    name: dov-bear-service
+spec:
+  type: ClusterIP
+  selector:
+    name: dov-bear-po
+  ports:
+  - port: 80
+    targetPort: dov-port
+
