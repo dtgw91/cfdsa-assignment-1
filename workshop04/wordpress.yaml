@@ -1,0 +1,112 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpressvol
+  labels:
+    name: wordpressvol
+    type: volume
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: do-block-storage
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: wordpress-configmap
+data:
+  WORDPRESS_DB_USER: root
+  WORDPRESS_DB_HOST: mysql
+  WORDPRESS_DB_NAME: wordpressdb
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secret
+type: Opaque
+data:
+  WORDPRESS_DB_PASSWORD: Y2hhbmdlaXQ=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-deploy
+  labels:
+    name: wordpress-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: wordpress-po
+  template:
+    metadata:
+      name: wordpress-po
+      labels:
+        name: wordpress-po
+        allow-ingress-traffic: allow
+    spec:
+      volumes:
+        - name: wordpress-vol
+          persistentVolumeClaim:
+            claimName: wordpressvol
+      containers:
+        - name: wordpress-container
+          image: wordpress:latest
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+          - name: wordpress-vol
+            mountPath: /var/www/html
+          envFrom:
+          - secretRef:
+              name: wordpress-secret
+          - configMapRef:
+              name: wordpress-configmap
+          ports:
+          - name: wordpress-port
+            containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-svc
+  labels:
+    name: wordpress-svc
+spec:
+  type: ClusterIP
+  selector:
+    name: wordpress-po
+  ports:
+  - port: 8080
+    targetPort: wordpress-port
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wordpress-ing
+  labels:
+    name: wordpress-ing
+    type: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: wordpress.146.190.5.176.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:  
+          service:
+            name: wordpress-svc
+            port: 
+              number: 8080

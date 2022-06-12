@@ -1,0 +1,62 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy 
+metadata:
+  name: wpdb-netpol
+  labels:
+    name: wpdb-netpol 
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: database
+      app.kubernetes.io/instance: wordpress-mysql
+      app.kubernetes.io/name: mysql
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: wordpress-po
+    ports:
+    - port: 3306
+      protocol: TCP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traffic-from-ingress
+  labels:
+    app: wp
+    name: allow-traffic-from-ingress
+spec:
+  podSelector:
+    matchLabels:
+      allow-ingress-traffic: allow
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from: 
+    - namespaceSelector: 
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+          name: ingress-nginx
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: controller
+          app.kubernetes.io/instance: ingress-nginx
+          app.kubernetes.io/name: ingress-nginx
+  egress:
+  - to:
+    - podSelector:
+        matchLabels: {}
+    ports:
+    - port: 3306
+      protocol: TCP
+  - ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP

@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secret
+type: Opaque
+data:
+  ROOT_PASSWORD: Y2hhbmdlaXQ=
+
+---
+apiVersion: mysql.presslabs.org/v1alpha1
+kind: MysqlCluster
+metadata:
+  name: wordpress-mysql
+  labels:
+    name: wordpress-mysql
+    allow-access: "yes"
+spec:
+  replicas: 2
+  secretName: wordpress-secret
+  volumeSpec:
+    persistentVolumeClaim:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: do-block-storage
+      resources:
+        requests:
+          storage: 1Gi
+
+---
+apiVersion: mysql.presslabs.org/v1alpha1
+kind: MysqlDatabase
+metadata:
+  name: wordpressdb
+spec:
+  database: wordpressdb
+  clusterRef:
+    name: wordpress-mysql
+    namespace: wordpress-ns
